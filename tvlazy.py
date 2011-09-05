@@ -1,0 +1,78 @@
+#! /usr/bin/python
+import subprocess
+import optparse
+import re
+import os
+import transmissionrpc
+import titles
+import datetime
+# 
+
+def runBash(cmd):
+    p = subprocess.Popen(cmd, shell=True)
+    os.waitpid(p.pid,0)
+
+def report(output,cmdtype="UNIX COMMAND:"):
+     print output
+
+def escapedir(dir):
+    return dir.replace(" ","\ ")
+
+def controller():
+    opt = optparse.OptionParser(description="does stuff for tv",
+    								prog="tvlazy",
+    								version="3.14",
+    								usage="%prog directory ")
+    opt.add_option('--clientip', '-c',
+                action = 'store',
+                help='Client ip address of transmission client',
+                default='192.168.1.109')
+    opt.add_option('--clientport', '-p',
+                action = 'store',
+                help='Client port of transmission client',
+                default='9091')
+    opt.add_option('--ratio', '-r',
+                action = 'store',
+                help='Ratio after which to delete torrents',
+                default='3')
+    opt.add_option('--old', '-o',
+                action = 'store',
+                help='Time in days after which to delete torrents',
+                default=40)
+    opt.add_option('--test', '-t',
+                action = 'store_true',
+                help='Test config etc.. no changes made',
+                default=False)
+	
+    options, arguments = opt.parse_args()
+    if len(arguments) < 0:
+    	opt.print_help()
+    	return
+    TEST = options.test
+
+# Get torrents
+    tc = transmissionrpc.Client(address=options.clientip, port=options.clientport)
+    torrentlist = tc.list()
+    for torrid in torrentlist:
+        torr = tc.info(torrid)[torrid]
+# Old torrent removal
+        remove = False;
+        # Checktime
+        now = datetime.datetime.now()
+        remove |= ((now - torr.date_done) > datetime.timedelta(days=int(options.old)))
+        # Check status
+        remove |= (torr.status == 'stopped')
+        # Check ratio
+        remove |= (torr.ratio > options.ratio)
+        
+        if(remove and TEST):
+            # Test only.
+            print 'TEST: Removing Torrent %s' % (torr.name)
+        elif(remove):
+            tc.remove(torrid, delete_data=True)
+
+def main():
+    controller()
+
+if __name__ == '__main__':
+    main()
