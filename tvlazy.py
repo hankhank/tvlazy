@@ -6,7 +6,6 @@ import os
 import transmissionrpc
 import titles
 import datetime
-# 
 
 def runBash(cmd):
     p = subprocess.Popen(cmd, shell=True)
@@ -17,6 +16,26 @@ def report(output,cmdtype="UNIX COMMAND:"):
 
 def escapedir(dir):
     return dir.replace(" ","\ ")
+
+# Cleans up torrents on torrent client that are over ratio 
+# and older than specified.
+def cleanupOldTorrents(torrentclient, ratio, daysold):
+    torrentlist = torrentclient.list()
+    for torrid in torrentlist:
+        torr = tc.info(torrid)[torrid]
+        # Old torrent removal
+        remove = False;
+        # Checktime
+        now = datetime.datetime.now()
+        remove |= ((now - torr.date_done) > datetime.timedelta(days=int(options.old)))
+        # Check status
+        remove |= (torr.status == 'stopped')
+        # Check ratio
+        remove |= (torr.ratio > options.ratio)
+        if(remove and TEST):
+            print 'TEST: Removing Torrent %s' % (torr.name)
+        elif(remove):
+            tc.remove(torrid, delete_data=True)
 
 def controller():
     opt = optparse.OptionParser(description="does stuff for tv",
@@ -31,6 +50,11 @@ def controller():
                 action = 'store',
                 help='Client port of transmission client',
                 default='9091')
+# Clean-up options
+    opt.add_option('--cleanup', '-C',
+                action = 'store_true',
+                help='Set this flag if you want to clean up old torrents',
+                default=False)
     opt.add_option('--ratio', '-r',
                 action = 'store',
                 help='Ratio after which to delete torrents',
@@ -39,6 +63,15 @@ def controller():
                 action = 'store',
                 help='Time in days after which to delete torrents',
                 default=40)
+# Sort torrent
+    opt.add_option('--tv-sort', '-t',
+                action = 'store',
+                help='Sort tv eps to this location',
+                default='')
+    opt.add_option('--movie-sort', '-m',
+                action = 'store',
+                help='Sort movies to this location',
+                default='')
     opt.add_option('--test', '-t',
                 action = 'store_true',
                 help='Test config etc.. no changes made',
@@ -50,28 +83,19 @@ def controller():
     	return
     TEST = options.test
 
-# Get torrents
+    # Connect to client
     tc = transmissionrpc.Client(address=options.clientip, port=options.clientport)
-    torrentlist = tc.list()
-    for torrid in torrentlist:
-        torr = tc.info(torrid)[torrid]
-# Old torrent removal
-        remove = False;
-        # Checktime
-        now = datetime.datetime.now()
-        remove |= ((now - torr.date_done) > datetime.timedelta(days=int(options.old)))
-        # Check status
-        remove |= (torr.status == 'stopped')
-        # Check ratio
-        remove |= (torr.ratio > options.ratio)
-        
-        if(remove and TEST):
-            # Test only.
-            print 'TEST: Removing Torrent %s' % (torr.name)
-        elif(remove):
-            tc.remove(torrid, delete_data=True)
+    
+    if( options.cleanup ):
+        cleanupOldTorrents(tc, options.ratio, options.old);
+    if( options.tv-sort || options.movie-sort ):
+        # Get environment variables
+        torr_id = os.environ['TR_TORRENT_ID']
+        torr_dir = os.environ['TR_TORRENT_DIR']
+        torr_name = os.environ['TR_TORRENT_NAME']
 
-def main():
+        
+    def main():
     controller()
 
 if __name__ == '__main__':

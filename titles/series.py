@@ -1,6 +1,6 @@
 import logging
 import re
-from flexget.utils.titles.parser import TitleParser, ParseWarning
+from titles.parser import TitleParser, ParseWarning
 from flexget.utils import qualities
 from flexget.utils.tools import ReList
 
