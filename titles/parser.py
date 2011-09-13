@@ -1,6 +1,5 @@
 import re
 
-
 class ParseWarning(Warning):
 
     def __init__(self, value, **kwargs):

@@ -6,6 +6,7 @@ import os
 import transmissionrpc
 import titles
 import datetime
+from titles import SeriesParser
 
 def runBash(cmd):
     p = subprocess.Popen(cmd, shell=True)
@@ -64,11 +65,11 @@ def controller():
                 help='Time in days after which to delete torrents',
                 default=40)
 # Sort torrent
-    opt.add_option('--tv-sort', '-t',
+    opt.add_option('--tv_sort', '-v',
                 action = 'store',
                 help='Sort tv eps to this location',
                 default='')
-    opt.add_option('--movie-sort', '-m',
+    opt.add_option('--movie_sort', '-m',
                 action = 'store',
                 help='Sort movies to this location',
                 default='')
@@ -88,14 +89,16 @@ def controller():
     
     if( options.cleanup ):
         cleanupOldTorrents(tc, options.ratio, options.old);
-    if( options.tv-sort || options.movie-sort ):
+    if( options.tv_sort or options.movie_sort ):
         # Get environment variables
-        torr_id = os.environ['TR_TORRENT_ID']
-        torr_dir = os.environ['TR_TORRENT_DIR']
-        torr_name = os.environ['TR_TORRENT_NAME']
+        #torr_id = os.environ['TR_TORRENT_ID']
+        #torr_dir = os.environ['TR_TORRENT_DIR']
+        #torr_name = os.environ['TR_TORRENT_NAME']
+        t = SeriesParser("Burn Notice")
+        print t.parse("Burn.Notice.S05E09.720p.HDTV.X264-DIMENSION").name
 
         
-    def main():
+def main():
     controller()
 
 if __name__ == '__main__':

@@ -1,10 +1,6 @@
-import logging
 import re
-from flexget.utils.titles.parser import TitleParser
-from flexget.utils import qualities
-
-log = logging.getLogger('movieparser')
-
+from titles.parser import TitleParser
+from titles import qualities
 
 def diff_pos(string1, string2):
     """Returns first position where string1 and string2 differ."""

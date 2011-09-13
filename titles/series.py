@@ -1,15 +1,13 @@
 import logging
 import re
-from titles.parser import TitleParser, ParseWarning
-from flexget.utils import qualities
-from flexget.utils.tools import ReList
+from parser import TitleParser, ParseWarning
+from titles import qualities
+from utils import ReList
 
 log = logging.getLogger('seriesparser')
-
 # Forced to INFO !
 # switch to logging.DEBUG if you want to debug this class (produces quite a bit info ..)
-log.setLevel(logging.INFO)
-
+log.setLevel(logging.DEBUG)
 
 class SeriesParser(TitleParser):
 
