@@ -6,7 +6,59 @@ import os
 import transmissionrpc
 import titles
 import datetime
+import logging
 from titles import SeriesParser
+
+class TvEpisode ():
+    def __init__(self, location, rawname):
+        print "Not yet implemented"
+    def epFromRawString(self, rawstr):
+        print "Not yet implemented"
+    def moveEp(self, location):
+        print "Not yet implemented"
+    def renameEp(self, newname):
+        print "Not yet implemented"
+    def delEp(self):
+        print "Not yet implemented"
+
+# Represents current tv series stored on disk.
+# Allows easy addition/subtraction of eps etc..
+class TvSeries ():
+    
+    season_regex = 'season[\s]*([0-9]*)' # needs to ignore case
+
+    def __init__(self, directory):
+        self.logger = logging.getLogger('tvlazy')
+        if( not directory ):
+            self.logger.error('Should have been given directory')
+            return
+
+        self.seasons = {} # Create empty seasons container
+        self.directory = directory
+        subdir = os.listdir(self.directory)
+        season_re = re.compile(self.season_regex, re.IGNORECASE)
+        for season in subdir:
+            if os.path.isdir(os.path.join(self.directory, season)):
+                self.logger.debug('Found a season %s' % season)
+                season_mat = season_re.match(season)
+                if( season_mat ):
+                    self.logger.debug('Season number %s' % season_mat.group(1))
+                    season_num = str(season_mat.group(1))
+                    self.seasons[season_num] = { 'directory': os.path.join(self.directory, season),
+                                                'text': season }
+    def addEpisode(tvep):
+        print "Not yet implemented"
+    def delEpisode(tvep):
+        print "Not yet implemented"
+    # Season 0 is all seasons
+    def listEpisodes(season = 0):
+        print "Not yet implemented"
+    def listSeasons():
+        print "Not yet implemented"
+    def delSeason():
+        print "Not yet implemented"
+    def addSeason():
+        print "Not yet implemented"
 
 def runBash(cmd):
     p = subprocess.Popen(cmd, shell=True)
@@ -84,6 +136,19 @@ def controller():
     	return
     TEST = options.test
 
+    # Setting up logging
+    logger = logging.getLogger('tvlazy')
+    logger.setLevel(logging.DEBUG)
+    #fh = logging.FileHandler('spam.log')
+    #fh.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    #fh.setFormatter(formatter)
+    ch.setFormatter(formatter)
+    #logger.addHandler(fh)
+    logger.addHandler(ch)
+
     # Connect to client
     tc = transmissionrpc.Client(address=options.clientip, port=options.clientport)
     
@@ -94,6 +159,7 @@ def controller():
         #torr_id = os.environ['TR_TORRENT_ID']
         #torr_dir = os.environ['TR_TORRENT_DIR']
         #torr_name = os.environ['TR_TORRENT_NAME']
+        b = TvSeries("/home/andrew/TvShows/Burn Notice")
         t = SeriesParser("Burn Notice")
         print t.parse("Burn.Notice.S05E09.720p.HDTV.X264-DIMENSION").name
 
