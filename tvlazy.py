@@ -10,8 +10,8 @@ import logging
 from titles import SeriesParser
 
 class TvEpisode ():
-    def __init__(self, location, rawname):
-        print "Not yet implemented"
+    def __init__(self, location, rawname=''):
+        self.ep_path = location
     def epFromRawString(self, rawstr):
         print "Not yet implemented"
     def moveEp(self, location):
@@ -20,6 +20,10 @@ class TvEpisode ():
         print "Not yet implemented"
     def delEp(self):
         print "Not yet implemented"
+    def epNumber(self):
+        print "Not yet implemented"
+        return '1'
+
 
 # Represents current tv series stored on disk.
 # Allows easy addition/subtraction of eps etc..
@@ -33,6 +37,9 @@ class TvSeries ():
             self.logger.error('Should have been given directory')
             return
 
+        # Collect the series name
+        self.seriesname = os.path.basename(directory)
+        # Collect seasons
         self.seasons = {} # Create empty seasons container
         self.directory = directory
         subdir = os.listdir(self.directory)
@@ -44,21 +51,44 @@ class TvSeries ():
                 if( season_mat ):
                     self.logger.debug('Season number %s' % season_mat.group(1))
                     season_num = str(season_mat.group(1))
-                    self.seasons[season_num] = { 'directory': os.path.join(self.directory, season),
-                                                'text': season }
-    def addEpisode(tvep):
+                    season_path = os.path.join(self.directory, season)
+                    self.seasons[season_num] = { 'directory': season_path,
+                                                'text': season,
+                                                'episodes': {} }
+                    # Collect Episodes
+                    season_eps = os.listdir(season_path)
+                    for ep in season_eps:
+                        ep_path = os.path.join(season_path, ep)
+                        new_ep = TvEpisode(ep_path)
+                        self.seasons[season_num]['episodes'][new_ep.epNumber()] = new_ep
+
+    def addEpisode(self, tvep):
         print "Not yet implemented"
-    def delEpisode(tvep):
+    def delEpisode(self, tvep):
         print "Not yet implemented"
     # Season 0 is all seasons
-    def listEpisodes(season = 0):
+    def listEpisodes(self, season = 0):
         print "Not yet implemented"
-    def listSeasons():
+    def listSeasons(self):
         print "Not yet implemented"
-    def delSeason():
+    def delSeason(self):
         print "Not yet implemented"
-    def addSeason():
+    def addSeason(self):
         print "Not yet implemented"
+    def getSeriesName(self):
+        return self.seriesname
+
+class TvCollection():
+    def __init__(self, location):
+        self.directory = location
+        subdir = os.listdir(self.directory)
+        self.tvcol= {}
+        for series in subdir:
+            series_path = os.path.join(self.directory, series)
+            new_series = TvSeries(series_path)
+            self.tvcol[new_series.getSeriesName()] = new_series
+    def getSeries(self):
+        return self.tvcol.keys()
 
 def runBash(cmd):
     p = subprocess.Popen(cmd, shell=True)
@@ -70,25 +100,53 @@ def report(output,cmdtype="UNIX COMMAND:"):
 def escapedir(dir):
     return dir.replace(" ","\ ")
 
+# Extracts Series if needs be
+def extractRars(location):
+    logger = logging.getlogger('tvlazy')
+    ls = os.walk(arguments[0])
+    for i in ls:
+    	rargroups = list()
+    	rgroups = list()
+    	for files in i[2]: # group rars
+            rar = re.match('((.*)\.rar)|((.*)\.r00)', files)
+            if rar:
+                rar = rar.groups()
+                rarext  = rar[0] # name and ext
+                rarname = rar[1] # name no ext
+                rext    = rar[2] # r# and ext
+                rname   = rar[3] # r# no ext
+                if rarname:
+                    if not (rarname+".r00") in rargroups:
+                        rargroups.append(rarext)
+                elif rname:
+                    if not (rname+".rar") in rargroups:
+                        rargroups.append(rext)
+        # process
+        for g in rargroups:
+            logger.info("unrarding %s" % g[:-4])
+            cmd = ('unrar x %s %s'% (escapedir( i[0] +'/'+ g),escapedir(i[0])))
+            runBash(cmd)
+
+
 # Cleans up torrents on torrent client that are over ratio 
 # and older than specified.
 def cleanupOldTorrents(torrentclient, ratio, daysold):
     torrentlist = torrentclient.list()
     for torrid in torrentlist:
-        torr = tc.info(torrid)[torrid]
+        torr = torrentclient.info(torrid)[torrid]
         # Old torrent removal
         remove = False;
         # Checktime
         now = datetime.datetime.now()
-        remove |= ((now - torr.date_done) > datetime.timedelta(days=int(options.old)))
+        remove |= ((now - torr.date_done) > datetime.timedelta(days=int(daysold)))
         # Check status
         remove |= (torr.status == 'stopped')
         # Check ratio
-        remove |= (torr.ratio > options.ratio)
-        if(remove and TEST):
+        remove |= (torr.ratio > ratio)
+        if(remove):
             print 'TEST: Removing Torrent %s' % (torr.name)
-        elif(remove):
-            tc.remove(torrid, delete_data=True)
+        #elif(remove):
+         #   tc.remove(torrid, delete_data=True)
 
 def controller():
     opt = optparse.OptionParser(description="does stuff for tv",
@@ -151,15 +209,38 @@ def controller():
 
     # Connect to client
     tc = transmissionrpc.Client(address=options.clientip, port=options.clientport)
-    
+    torrentlist = tc.list()
+    tvcol = TvCollection("/home/andrew/TvShows/")
     if( options.cleanup ):
+        # find tv series
+        series = tvcol.getSeries()
+        for tor in torrentlist:
+            torrent = tc.info(tor)[tor]
+            # Compare against all series
+            for s in series:
+                t = SeriesParser(s)
+                try: 
+                    pres = t.parse(torrent.name) 
+                except: 
+                    print "ad"
+                if( pres ):
+                    print pres.name
         cleanupOldTorrents(tc, options.ratio, options.old);
     if( options.tv_sort or options.movie_sort ):
         # Get environment variables
-        #torr_id = os.environ['TR_TORRENT_ID']
-        #torr_dir = os.environ['TR_TORRENT_DIR']
-        #torr_name = os.environ['TR_TORRENT_NAME']
-        b = TvSeries("/home/andrew/TvShows/Burn Notice")
+        try:
+            torr_id = os.environ['TR_TORRENT_ID']
+            torr_dir = os.environ['TR_TORRENT_DIR']
+            torr_name = os.environ['TR_TORRENT_NAME']
+        except KeyError:
+            torr_id = 1
+            logger.error("No torrent info")
+        torr = tc.info(torr_id)[torr_id]
+        # Do we need to extract any files?
+        for f in torr.files():
+            print f
+        return
+        b = TvCollection("/home/andrew/TvShows/")
         t = SeriesParser("Burn Notice")
         print t.parse("Burn.Notice.S05E09.720p.HDTV.X264-DIMENSION").name
 
