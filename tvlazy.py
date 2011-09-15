@@ -10,8 +10,13 @@ import logging
 from titles import SeriesParser
 
 class TvEpisode ():
-    def __init__(self, location, rawname=''):
-        self.ep_path = location
+    def __init__(self, location, name, ep, season, quality):
+        self.location = location
+        self.name = name
+        self.ep = ep
+        self.season = season
+        self.quality = quality
+
     def epFromRawString(self, rawstr):
         print "Not yet implemented"
     def moveEp(self, location):
@@ -23,6 +28,11 @@ class TvEpisode ():
     def epNumber(self):
         print "Not yet implemented"
         return '1'
+
+class TorentTvEpisode (TvEpisode):
+    def __init__(self, name, ep, season, quality, files):
+        TvEpisode.__init__(self, location, name, ep, season, quality)
+        self.files = files
 
 
 # Represents current tv series stored on disk.
@@ -57,10 +67,17 @@ class TvSeries ():
                                                 'episodes': {} }
                     # Collect Episodes
                     season_eps = os.listdir(season_path)
+                    t = SeriesParser(self.seriesname, identified_by='ep')
                     for ep in season_eps:
                         ep_path = os.path.join(season_path, ep)
-                        new_ep = TvEpisode(ep_path)
-                        self.seasons[season_num]['episodes'][new_ep.epNumber()] = new_ep
+                        #try: 
+                        t.parse(ep)
+                        #except e: 
+                        if( t.valid ):
+                            print t
+                            return
+                            new_ep = TvEpisode(ep_path, t.name, t.episode, t.season, t.quality)
+                            self.seasons[season_num]['episodes'][new_ep.epNumber()] = new_ep
 
     def addEpisode(self, tvep):
         print "Not yet implemented"
@@ -196,7 +213,7 @@ def controller():
 
     # Setting up logging
     logger = logging.getLogger('tvlazy')
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     #fh = logging.FileHandler('spam.log')
     #fh.setLevel(logging.DEBUG)
     ch = logging.StreamHandler()
@@ -216,15 +233,16 @@ def controller():
         series = tvcol.getSeries()
         for tor in torrentlist:
             torrent = tc.info(tor)[tor]
-            # Compare against all series
+            # See if it matches our collection
             for s in series:
                 t = SeriesParser(s)
                 try: 
-                    pres = t.parse(torrent.name) 
+                    t.parse(torrent.name) 
                 except: 
                     print "ad"
-                if( pres ):
-                    print pres.name
+                if( t.valid ):
+                    ep = TorrentTvEpisode(t.name, t.ep, t.season, t.quality, torrent.files())
+                    tvcol.addEpisode(ep)
         cleanupOldTorrents(tc, options.ratio, options.old);
     if( options.tv_sort or options.movie_sort ):
         # Get environment variables

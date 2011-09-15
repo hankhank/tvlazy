@@ -4,7 +4,7 @@ from parser import TitleParser, ParseWarning
 from titles import qualities
 from utils import ReList
 
-log = logging.getLogger('seriesparser')
+log = logging.getLogger('tvlazy')
 # Forced to INFO !
 # switch to logging.DEBUG if you want to debug this class (produces quite a bit info ..)
 log.setLevel(logging.DEBUG)
