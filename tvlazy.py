@@ -10,9 +10,9 @@ import logging
 from titles import SeriesParser
 
 class TvEpisode ():
-    def __init__(self, location, name, ep, season, quality):
+    def __init__(self, location, series, ep, season, quality):
         self.location = location
-        self.name = name
+        self.series = series
         self.ep = ep
         self.season = season
         self.quality = quality
@@ -20,33 +20,36 @@ class TvEpisode ():
     def epFromRawString(self, rawstr):
         print "Not yet implemented"
     def moveEp(self, location):
-        print "Not yet implemented"
+        print "MOVING to %s" % location
     def renameEp(self, newname):
         print "Not yet implemented"
     def delEp(self):
         print "Not yet implemented"
     def epNumber(self):
-        print "Not yet implemented"
-        return '1'
+        return self.ep
+    def __eq__(self, other):
+        return (self.ep == other.ep and self.season == other.season)
+           # and self.quality == other.quality)
+    def __ne__(self, other):
+        return (self.ep != other.ep or self.season != other.season 
+            or self.quality == other.quality)
 
-class TorentTvEpisode (TvEpisode):
-    def __init__(self, name, ep, season, quality, files):
-        TvEpisode.__init__(self, location, name, ep, season, quality)
+class TorrentTvEpisode (TvEpisode):
+    def __init__(self, series, ep, season, quality, files):
+        TvEpisode.__init__(self, '', series, ep, season, quality)
         self.files = files
-
 
 # Represents current tv series stored on disk.
 # Allows easy addition/subtraction of eps etc..
 class TvSeries ():
     
-    season_regex = 'season[\s]*([0-9]*)' # needs to ignore case
+    season_regex = '.*season[\s]*([0-9]*).*' # needs to ignore caseseason_num
 
     def __init__(self, directory):
         self.logger = logging.getLogger('tvlazy')
         if( not directory ):
             self.logger.error('Should have been given directory')
             return
-
         # Collect the series name
         self.seriesname = os.path.basename(directory)
         # Collect seasons
@@ -70,30 +73,50 @@ class TvSeries ():
                     t = SeriesParser(self.seriesname, identified_by='ep')
                     for ep in season_eps:
                         ep_path = os.path.join(season_path, ep)
-                        #try: 
-                        t.parse(ep)
-                        #except e: 
+                        try: 
+                            t.parse(ep)
+                        except: 
+                            print ep
                         if( t.valid ):
-                            print t
-                            return
                             new_ep = TvEpisode(ep_path, t.name, t.episode, t.season, t.quality)
                             self.seasons[season_num]['episodes'][new_ep.epNumber()] = new_ep
 
     def addEpisode(self, tvep):
-        print "Not yet implemented"
+        eps = self.listEpisodes()
+        if( not tvep in eps):
+            print "we need to add %s %s %s" %  (tvep.series,tvep.season,tvep.ep)
+            seasons = self.seasons.keys()
+            if( not tvep.season in seasons):
+                self.addSeason(tvep.season)   
+            tvep.moveEp(self.seasons[tvep.season]['directory'])
+        return       
     def delEpisode(self, tvep):
         print "Not yet implemented"
     # Season 0 is all seasons
     def listEpisodes(self, season = 0):
-        print "Not yet implemented"
+        if( season == 0 ):
+            return [ ep for s in self.seasons.values() for ep in s['episodes'].values()]
+        else:
+            return [ ep for ep in self.seasons[season]['episodes'].values()]
+
     def listSeasons(self):
         print "Not yet implemented"
     def delSeason(self):
         print "Not yet implemented"
-    def addSeason(self):
-        print "Not yet implemented"
+    def addSeason(self, newseason):
+        season_path = os.path.join(self.directory, "Season %s" % newseason)
+        os.makedirs(season_path)
+        self.seasons[newseason] = { 'directory': season_path,
+                                        'text': newseason,
+                                        'episodes': {} }
     def getSeriesName(self):
         return self.seriesname
+    def printSeries(self):
+        print self.seriesname
+        for s in self.seasons.keys():
+            print "\tSeason %s" % s
+            for e in self.seasons[s]['episodes']:
+                print"\t\tEpisode %s" % e
 
 class TvCollection():
     def __init__(self, location):
@@ -104,8 +127,16 @@ class TvCollection():
             series_path = os.path.join(self.directory, series)
             new_series = TvSeries(series_path)
             self.tvcol[new_series.getSeriesName()] = new_series
+    def printAll(self):
+        for new_series in  self.tvcol.values():
+            new_series.printSeries()
     def getSeries(self):
         return self.tvcol.keys()
+    def addEpisode(self, tvep):
+        # Assume we have the series for now
+        series = self.tvcol[tvep.series]
+        series.addEpisode(tvep)
+            
 
 def runBash(cmd):
     p = subprocess.Popen(cmd, shell=True)
@@ -241,7 +272,7 @@ def controller():
                 except: 
                     print "ad"
                 if( t.valid ):
-                    ep = TorrentTvEpisode(t.name, t.ep, t.season, t.quality, torrent.files())
+                    ep = TorrentTvEpisode(t.name, t.episode, t.season, t.quality, torrent.files())
                     tvcol.addEpisode(ep)
         cleanupOldTorrents(tc, options.ratio, options.old);
     if( options.tv_sort or options.movie_sort ):
