@@ -7,6 +7,7 @@ import transmissionrpc
 import titles
 import datetime
 import logging
+import shutil
 from titles import SeriesParser
 
 class TvEpisode ():
@@ -35,9 +36,59 @@ class TvEpisode ():
             or self.quality == other.quality)
 
 class TorrentTvEpisode (TvEpisode):
+
+    vids_regex = '.(mkv|avi)' # needs to ignore caseseason_num
+    sample_regex = 'sample' # needs to ignore caseseason_num
+    rar_regex = '((.*)\.rar)|((.*)\.r00)'
+
     def __init__(self, series, ep, season, quality, files):
         TvEpisode.__init__(self, '', series, ep, season, quality)
-        self.files = files
+        self.files = [ f['name'] for f in files.values()]
+        self.download_dir = "/home/andrew/Downloads"
+        self.tordir = os.path.join(self.download_dir, os.path.dirname(self.files[0]).split('/',1)[0])
+
+    def moveEp(self, location):
+        print "Torrent MOVING to %s" % location
+        # get folder and try and extract video
+        self.extractRars(self.tordir)
+        # get video files
+        vids = self.findVids(self.tordir)   
+        print vids
+        # remove samples
+        vids = self.removeSamples(vids)
+        print vids
+        if( vids ):
+            for v in vids:
+               shutil.move(os.path.join(self.tordir, v),location)
+
+    def extractRars(self, tordir):
+        rar_re = re.compile(self.rar_regex, re.IGNORECASE)
+        for f in self.files:
+            if( rar_re.match(f) ):
+                # get name of files to be extracted
+                cmd = ('unrar x -y %s %s'% (os.path.join(self.download_dir, f), tordir))
+                runBash(cmd)
+                return
+
+    def removeSamples(self, files):
+        ret_vids = []
+        samp_re = re.compile(self.sample_regex, re.IGNORECASE)
+        for f in files:
+            if( not samp_re.search(f) ):
+                ret_vids.append(f)
+        return ret_vids
+
+    def findVids(self, tordir):
+        ret_vids = []
+        vids_re = re.compile(self.vids_regex, re.IGNORECASE)
+        files = os.listdir(tordir)
+        for f in files:
+            split_file = os.path.splitext(os.path.basename(f))
+            if( len(split_file) == 2):
+                if( vids_re.match(split_file[1]) ):
+                    ret_vids.append(f)
+        return ret_vids
+    
 
 # Represents current tv series stored on disk.
 # Allows easy addition/subtraction of eps etc..
@@ -86,9 +137,10 @@ class TvSeries ():
         if( not tvep in eps):
             print "we need to add %s %s %s" %  (tvep.series,tvep.season,tvep.ep)
             seasons = self.seasons.keys()
-            if( not tvep.season in seasons):
+            print seasons
+            if( not str(tvep.season) in seasons):
                 self.addSeason(tvep.season)   
-            tvep.moveEp(self.seasons[tvep.season]['directory'])
+            tvep.moveEp(self.seasons[str(tvep.season)]['directory'])
         return       
     def delEpisode(self, tvep):
         print "Not yet implemented"
@@ -147,34 +199,6 @@ def report(output,cmdtype="UNIX COMMAND:"):
 
 def escapedir(dir):
     return dir.replace(" ","\ ")
-
-# Extracts Series if needs be
-def extractRars(location):
-    logger = logging.getlogger('tvlazy')
-    ls = os.walk(arguments[0])
-    for i in ls:
-    	rargroups = list()
-    	rgroups = list()
-    	for files in i[2]: # group rars
-            rar = re.match('((.*)\.rar)|((.*)\.r00)', files)
-            if rar:
-                rar = rar.groups()
-                rarext  = rar[0] # name and ext
-                rarname = rar[1] # name no ext
-                rext    = rar[2] # r# and ext
-                rname   = rar[3] # r# no ext
-                if rarname:
-                    if not (rarname+".r00") in rargroups:
-                        rargroups.append(rarext)
-                elif rname:
-                    if not (rname+".rar") in rargroups:
-                        rargroups.append(rext)
-        # process
-        for g in rargroups:
-            logger.info("unrarding %s" % g[:-4])
-            cmd = ('unrar x %s %s'% (escapedir( i[0] +'/'+ g),escapedir(i[0])))
-            runBash(cmd)
-
 
 # Cleans up torrents on torrent client that are over ratio 
 # and older than specified.
@@ -274,6 +298,7 @@ def controller():
                 if( t.valid ):
                     ep = TorrentTvEpisode(t.name, t.episode, t.season, t.quality, torrent.files())
                     tvcol.addEpisode(ep)
+        return
         cleanupOldTorrents(tc, options.ratio, options.old);
     if( options.tv_sort or options.movie_sort ):
         # Get environment variables
