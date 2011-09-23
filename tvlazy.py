@@ -288,16 +288,17 @@ def controller():
         series = tvcol.getSeries()
         for tor in torrentlist:
             torrent = tc.info(tor)[tor]
-            # See if it matches our collection
-            for s in series:
-                t = SeriesParser(s)
-                try: 
-                    t.parse(torrent.name) 
-                except: 
-                    print "ad"
-                if( t.valid ):
-                    ep = TorrentTvEpisode(t.name, t.episode, t.season, t.quality, torrent.files())
-                    tvcol.addEpisode(ep)
+            if( int(torrent.progress) == int(100) ): 
+                # See if it matches our collection
+                for s in series:
+                    t = SeriesParser(s)
+                    try: 
+                        t.parse(torrent.name) 
+                    except: 
+                        print "ad"
+                    if( t.valid ):
+                        ep = TorrentTvEpisode(t.name, t.episode, t.season, t.quality, torrent.files())
+                        tvcol.addEpisode(ep)
         return
         cleanupOldTorrents(tc, options.ratio, options.old);
     if( options.tv_sort or options.movie_sort ):
