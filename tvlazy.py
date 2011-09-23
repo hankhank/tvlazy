@@ -11,7 +11,9 @@ import shutil
 from titles import SeriesParser
 
 class TvEpisode ():
+
     def __init__(self, location, series, ep, season, quality):
+        self.logger = logging.getLogger('tvlazy')
         self.location = location
         self.series = series
         self.ep = ep
@@ -19,21 +21,25 @@ class TvEpisode ():
         self.quality = quality
 
     def epFromRawString(self, rawstr):
-        print "Not yet implemented"
+        self.logger.info("Not yet implemented")
+
     def moveEp(self, location):
-        print "MOVING to %s" % location
+        self.logger.info("Moving to %s" % location)
+
     def renameEp(self, newname):
-        print "Not yet implemented"
+        self.logger.info("Not yet implemented")
+
     def delEp(self):
-        print "Not yet implemented"
+        self.logger.info("Not yet implemented")
+
     def epNumber(self):
         return self.ep
+
     def __eq__(self, other):
         return (self.ep == other.ep and self.season == other.season)
-           # and self.quality == other.quality)
+
     def __ne__(self, other):
-        return (self.ep != other.ep or self.season != other.season 
-            or self.quality == other.quality)
+        return (self.ep != other.ep or self.season != other.season)
 
 class TorrentTvEpisode (TvEpisode):
 
@@ -48,15 +54,12 @@ class TorrentTvEpisode (TvEpisode):
         self.tordir = os.path.join(self.download_dir, os.path.dirname(self.files[0]).split('/',1)[0])
 
     def moveEp(self, location):
-        print "Torrent MOVING to %s" % location
         # get folder and try and extract video
         self.extractRars(self.tordir)
         # get video files
         vids = self.findVids(self.tordir)   
-        print vids
         # remove samples
         vids = self.removeSamples(vids)
-        print vids
         if( vids ):
             for v in vids:
                shutil.move(os.path.join(self.tordir, v),location)
@@ -233,7 +236,7 @@ def controller():
                 action = 'store',
                 help='Client port of transmission client',
                 default='9091')
-# Clean-up options
+    # Clean-up options
     opt.add_option('--cleanup', '-C',
                 action = 'store_true',
                 help='Set this flag if you want to clean up old torrents',
@@ -246,7 +249,7 @@ def controller():
                 action = 'store',
                 help='Time in days after which to delete torrents',
                 default=40)
-# Sort torrent
+    # Sort torrent
     opt.add_option('--tv_sort', '-v',
                 action = 'store',
                 help='Sort tv eps to this location',
@@ -279,11 +282,12 @@ def controller():
     #logger.addHandler(fh)
     logger.addHandler(ch)
 
-    # Connect to client
+    # Connect to client and create the collection
     tc = transmissionrpc.Client(address=options.clientip, port=options.clientport)
     torrentlist = tc.list()
     tvcol = TvCollection("/home/andrew/TvShows/")
-    if( options.cleanup ):
+
+    if( options.tv_sort ):
         # find tv series
         series = tvcol.getSeries()
         for tor in torrentlist:
@@ -294,12 +298,16 @@ def controller():
                 try: 
                     t.parse(torrent.name) 
                 except: 
-                    print "ad"
+                    logger.error("Tried to parse but failed")
                 if( t.valid ):
                     ep = TorrentTvEpisode(t.name, t.episode, t.season, t.quality, torrent.files())
                     tvcol.addEpisode(ep)
         return
+
+    if( options.cleanup ):
         cleanupOldTorrents(tc, options.ratio, options.old);
+        return
+
     if( options.tv_sort or options.movie_sort ):
         # Get environment variables
         try:
@@ -314,10 +322,6 @@ def controller():
         for f in torr.files():
             print f
         return
-        b = TvCollection("/home/andrew/TvShows/")
-        t = SeriesParser("Burn Notice")
-        print t.parse("Burn.Notice.S05E09.720p.HDTV.X264-DIMENSION").name
-
         
 def main():
     controller()
