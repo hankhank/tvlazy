@@ -210,21 +210,18 @@ def cleanupOldTorrents(torrentclient, ratio, daysold):
     for torrid in torrentlist:
         torr = torrentclient.info(torrid)[torrid]
         # Old torrent removal
-        remove = False;
+        remove = True;
         # Checktime
         now = datetime.datetime.now()
-        remove |= ((now - torr.date_done) > datetime.timedelta(days=int(daysold)))
-        # Check status
-        remove |= (torr.status == 'stopped')
+        remove &= ((now - torr.date_done) > datetime.timedelta(days=int(daysold)))
         # Check ratio
-        if( torr.ratio < 0 ):
-            remove |= (torr.ratio < ratio)
+        if( ratio < 0 ):
+            remove &= (int(torr.ratio) < abs(ratio))
         else:
-            remove |= (torr.ratio > ratio)
+            remove &= (int(torr.ratio) > ratio)
         if(remove):
-            print 'TEST: Removing Torrent %s' % (torr.name)
-        #elif(remove):
-         #   tc.remove(torrid, delete_data=True)
+            print 'Removing Torrent %s ratio %s date %s' % (torr.name, torr.ratio, torr.date_done)
+            torrentclient.remove(torrid, delete_data=True)
 
 def controller():
     opt = optparse.OptionParser(description="does stuff for tv",
@@ -246,7 +243,8 @@ def controller():
                 default=False)
     opt.add_option('--ratio', '-r',
                 action = 'store',
-                help='Ratio after which to delete torrents',
+                help='Ratio after which to delete torrents if positive. \
+                    If negative ratio before to delete torrents',
                 default='3')
     opt.add_option('--old', '-o',
                 action = 'store',
@@ -309,7 +307,7 @@ def controller():
         return
 
     if( options.cleanup ):
-        cleanupOldTorrents(tc, options.ratio, options.old);
+        cleanupOldTorrents(tc, int(options.ratio), options.old);
         return
 
     if( options.tv_sort or options.movie_sort ):
