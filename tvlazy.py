@@ -259,6 +259,12 @@ def controller():
                 action = 'store',
                 help='Sort movies to this location',
                 default='')
+    # Maintain New-list
+    opt.add_option('--new_list', '-n',
+                action = 'store',
+                help='Maintain a newlist of the newest 50 videos in \
+                    at this location chronological order',
+                default='')
     opt.add_option('--test', '-t',
                 action = 'store_true',
                 help='Test config etc.. no changes made',
@@ -287,8 +293,12 @@ def controller():
     tc = transmissionrpc.Client(address=options.clientip, port=options.clientport)
     torrentlist = tc.list()
     tvcol = TvCollection("/home/andrew/TvShows/")
+    
+    # New movies/tveps list
+    newtv = []
+    newmovie = []
 
-    if( options.tv_sort ):
+    if( options.tv_sort != '' ):
         # find tv series
         series = tvcol.getSeries()
         for tor in torrentlist:
@@ -304,11 +314,34 @@ def controller():
                     if( t.valid ):
                         ep = TorrentTvEpisode(t.name, t.episode, t.season, t.quality, torrent.files())
                         tvcol.addEpisode(ep)
+                        newtv.append(ep)
         return
 
     if( options.cleanup ):
         cleanupOldTorrents(tc, int(options.ratio), options.old);
         return
+    
+    ep = TvEpisode("/home/andrew/TvShows/Breaking Bad/Season 1/Breaking.Bad.S01E05.Gray.Matter.HDTV.XviD-LOL.avi", "Breaking Bad", "1", "5", "720")
+    newtv.append(ep)
+    MAX_NEW_LIST = 50
+    if( options.new_list != '' ):
+        # Get current new list
+        newlinks = os.listdir(options.new_list)
+        newlinks.sort() # Ascending
+        if( len(newtv) > 0 ):
+            # Remove old 
+            dellinks = []
+            if( MAX_NEW_LIST < (len(newtv)+len(dellinks))):
+                dellinks = newlinks[MAX_NEW_LIST-len(newtv):]
+                for d in delinks:
+                    print d
+                    os.remove(path.join(options.new_list, d))
+            # Add new
+            for ep in newtv:
+                src = "%s" % ep.location
+                dst = "%s/%s-s%02d%02d" % (options.new_list, ep.series,
+                    int(ep.season), int(ep.ep))
+                os.symlink(src, dst)
 
     if( options.tv_sort or options.movie_sort ):
         # Get environment variables
