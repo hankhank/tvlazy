@@ -217,7 +217,10 @@ def cleanupOldTorrents(torrentclient, ratio, daysold):
         # Check status
         remove |= (torr.status == 'stopped')
         # Check ratio
-        remove |= (torr.ratio > ratio)
+        if( torr.ratio < 0 ):
+            remove |= (torr.ratio < ratio)
+        else:
+            remove |= (torr.ratio > ratio)
         if(remove):
             print 'TEST: Removing Torrent %s' % (torr.name)
         #elif(remove):
@@ -299,7 +302,7 @@ def controller():
                     try: 
                         t.parse(torrent.name) 
                     except: 
-                        logger.error("Tried to parse but failed")
+                        logger.error("Tried to parse but failed %s" % torrent.name)
                     if( t.valid ):
                         ep = TorrentTvEpisode(t.name, t.episode, t.season, t.quality, torrent.files())
                         tvcol.addEpisode(ep)
