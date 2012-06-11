@@ -65,11 +65,14 @@ class TorrentTvEpisode (TvEpisode):
                shutil.move(os.path.join(self.tordir, v),location)
 
     def extractRars(self, tordir):
-        rar_re = re.compile(self.rar_regex, re.IGNORECASE)
-        for f in self.files:
-            if( rar_re.match(f) ):
-                # get name of files to be extracted
-                cmd = ('unrar x -y %s %s'% (os.path.join(self.download_dir, f), tordir))
+        for fs in self.files: # group rars
+            try: filetype = runBash('file {}/{}'.format(
+                self.download_dir,fs)).split(' ', 1)[1]
+            except: continue
+            if filetype.startswith('RAR archive'):
+            # get name of files to be extracted
+                cmd = ('unrar x -y %s %s'% (os.path.join(self.download_dir, fs),
+                    tordir))
                 runBash(cmd)
                 return
 
@@ -137,10 +140,9 @@ class TvSeries ():
 
     def addEpisode(self, tvep):
         eps = self.listEpisodes()
-        if( not tvep in eps):
+        if( tvep.season and tvep.ep and not tvep in eps):
             print "we need to add %s %s %s" %  (tvep.series,tvep.season,tvep.ep)
             seasons = self.seasons.keys()
-            print seasons
             if( not str(tvep.season) in seasons):
                 self.addSeason(tvep.season)   
             tvep.moveEp(self.seasons[str(tvep.season)]['directory'])
@@ -194,8 +196,11 @@ class TvCollection():
             
 
 def runBash(cmd):
-    p = subprocess.Popen(cmd, shell=True)
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
+    out = p.stdout.read().strip()
     os.waitpid(p.pid,0)
+    return out
 
 def report(output,cmdtype="UNIX COMMAND:"):
      print output
@@ -321,27 +326,31 @@ def controller():
         cleanupOldTorrents(tc, int(options.ratio), options.old);
         return
     
-    ep = TvEpisode("/home/andrew/TvShows/Breaking Bad/Season 1/Breaking.Bad.S01E05.Gray.Matter.HDTV.XviD-LOL.avi", "Breaking Bad", "1", "5", "720")
     newtv.append(ep)
-    MAX_NEW_LIST = 50
+    MAX_NEW_LIST = 10
+    logger.error('newtv {} newlist {}'.format(newtv, newlist))
     if( options.new_list != '' ):
         # Get current new list
         newlinks = os.listdir(options.new_list)
+        newlinks = [(os.lstat(os.path.join(options.new_list, n)).st_ctime,
+            n) for n in newlinks]
         newlinks.sort() # Ascending
-        if( len(newtv) > 0 ):
+        if(len(newtv) > 0):
             # Remove old 
             dellinks = []
-            if( MAX_NEW_LIST < (len(newtv)+len(dellinks))):
-                dellinks = newlinks[MAX_NEW_LIST-len(newtv):]
+            if((len(newlinks)+len(newtv)) > MAX_NEW_LIST):
+                dellinks = newlinks[(len(newlinks)+len(newtv)) - MAX_NEW_LIST:]
+                logger.erro('old links {}'.format(dellinks))
                 for d in delinks:
                     print d
-                    os.remove(path.join(options.new_list, d))
+                    os.remove(os.path.join(options.new_list, d))
             # Add new
             for ep in newtv:
                 src = "%s" % ep.location
                 dst = "%s/%s-s%02d%02d" % (options.new_list, ep.series,
                     int(ep.season), int(ep.ep))
                 os.symlink(src, dst)
+                logger.error( '{}->{}'.format(src, dst))
 
     if( options.tv_sort or options.movie_sort ):
         # Get environment variables
